@@ -16,6 +16,13 @@ public class RunsView : ViewBase
     var searchTerm = UseState("");
     var selectedTag = UseState("All Tags");
 
+    // Dialog State
+    var isDialogOpen = UseState(false);
+    var runName = UseState("");
+    var runTags = UseState("");
+    var runOwner = UseState("");
+    var runHyperparams = UseState("{\n  \"learning_rate\": 0.001,\n  \"batch_size\": 32\n}");
+
     // Mock Data
     var runs = new[]
     {
@@ -30,27 +37,30 @@ public class RunsView : ViewBase
         (selectedTag.Value == "All Tags" || r.Tags.Contains(selectedTag.Value))
     ).ToList();
 
-    var openNewRunDialog = () =>
-    {
-      client.Toast("Opening Log Run Dialog...");
-    };
+    var labeledInput = (string label, object input) =>
+        Layout.Vertical().Gap(1)
+            | Text.Block(label).Bold()
+            | input;
 
-    var header = new Card(
-        Layout.Horizontal().Align(Align.Center)
-            | Layout.Vertical()
-                | Text.H2("Experiment Runs")
-                | Text.P($"{filteredRuns.Count} runs matching filters")
-                | searchTerm.ToTextInput().Placeholder("Search runs...")
-            | Layout.Horizontal().Gap(2)
-                | new Button("New Run", openNewRunDialog).Primary()
-                | new DropDownMenu(
-                    evt => selectedTag.Set(evt.Value?.ToString() ?? "All Tags"),
-                    MenuItem.Default("All Tags").Tag("All Tags"),
-                    MenuItem.Default("vision").Tag("vision"),
-                    MenuItem.Default("nlp").Tag("nlp")
-                )
-                | new Button("All Owners").Icon(Icons.User)
-    );
+    var header = Layout.Horizontal().Align(Align.Center).Gap(4)
+        | Text.H2("Experiment Runs")
+        | Text.P($"{filteredRuns.Count} runs")
+        | searchTerm.ToTextInput().Placeholder("Search runs...").Width(200)
+        | new Spacer()
+        | Layout.Horizontal().Gap(2)
+            | new Button("New Run", () => isDialogOpen.Set(true)).Primary()
+            | (new DropDownMenu(
+                evt => selectedTag.Set(evt.Value?.ToString() ?? "All Tags"),
+                new Button(selectedTag.Value).Icon(Icons.Tag))
+                | MenuItem.Default("All Tags").Tag("All Tags")
+                | MenuItem.Default("vision").Tag("vision")
+                | MenuItem.Default("nlp").Tag("nlp"))
+            | (new DropDownMenu(evt => client.Toast($"Selected Owner: {evt.Value}"),
+                new Button("All Owners").Icon(Icons.User))
+                | MenuItem.Default("All Owners").Tag("All Owners")
+                | MenuItem.Default("Alice").Tag("Alice")
+                | MenuItem.Default("Bob").Tag("Bob")
+                | MenuItem.Default("Charlie").Tag("Charlie"));
 
     var table = new Table()
         | new TableRow()
@@ -74,8 +84,33 @@ public class RunsView : ViewBase
           | new TableCell(new Button("View Charts", () => _onViewMetrics(run.Name)).Secondary());
     }
 
+
+
     return Layout.Vertical().Gap(6)
         | header
-        | new Card(table);
+        | new Card(table)
+        | (isDialogOpen.Value ? new Dialog(
+            _ => isDialogOpen.Set(false),
+            new DialogHeader("Log a New Experiment Run"),
+            new DialogBody(
+                Layout.Vertical().Gap(4)
+                | labeledInput("Run Name", runName.ToTextInput().Placeholder("e.g. ResNBA-101"))
+                | labeledInput("Tags (comma-separated)", runTags.ToTextInput().Placeholder("vision, production"))
+                | labeledInput("Owner", runOwner.ToTextInput().Placeholder("e.g. joshua"))
+                | labeledInput("Hyperparameters (JSON Format)", runHyperparams.ToTextInput().Placeholder("e.g. {\"lr\": 0.01}"))
+            ),
+            new DialogFooter(
+                new Button("Cancel", () => isDialogOpen.Set(false)),
+                new Button("Log Run", () =>
+                {
+                  client.Toast($"Logged run: {runName.Value}");
+                  isDialogOpen.Set(false);
+                  runName.Set("");
+                  runTags.Set("");
+                  runOwner.Set("");
+                }).Primary()
+            )
+        ) : null);
+
   }
 }
