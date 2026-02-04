@@ -56,8 +56,6 @@ public class MLModelDashboardApp : ViewBase
             selectedItem.Set(tag);
             selectedRunForMetrics.Set("");
           }
-
-          client.Toast($"Viewing {tag}");
         },
         items: menuItems
     );
