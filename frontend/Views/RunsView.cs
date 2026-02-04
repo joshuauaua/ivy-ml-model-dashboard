@@ -1,5 +1,15 @@
 namespace Frontend.Views;
 
+public class Run
+{
+  public string Name { get; set; } = "";
+  public string Tags { get; set; } = "";
+  public string Owner { get; set; } = "";
+  public string Stage { get; set; } = "Staging";
+  public double Accuracy { get; set; }
+  public string CreatedAt { get; set; } = "";
+}
+
 public class RunsView : ViewBase
 {
   private readonly Action<string> _onViewMetrics;
@@ -15,6 +25,7 @@ public class RunsView : ViewBase
 
     var searchTerm = UseState("");
     var selectedTag = UseState("All Tags");
+    var selectedOwner = UseState("All Owners");
 
     // Dialog State
     var isDialogOpen = UseState(false);
@@ -23,18 +34,19 @@ public class RunsView : ViewBase
     var runOwner = UseState("");
     var runHyperparams = UseState("{\n  \"learning_rate\": 0.001,\n  \"batch_size\": 32\n}");
 
-    // Mock Data
-    var runs = new[]
+    // Stateful Runs Data
+    var runs = UseState(new List<Run>
     {
-            new { Name = "ResNet-50-v1", Tags = "vision, classification", Owner = "Alice", Stage = "Production", Accuracy = 0.94, CreatedAt = "2024-02-01" },
-            new { Name = "BERT-Base-Uncased", Tags = "nlp, transformer", Owner = "Bob", Stage = "Staging", Accuracy = 0.89, CreatedAt = "2024-02-03" },
-            new { Name = "YOLOv8-Nano", Tags = "vision, detection", Owner = "Charlie", Stage = "Production", Accuracy = 0.91, CreatedAt = "2024-02-04" },
-            new { Name = "GPT-2-Large", Tags = "nlp, generation", Owner = "Alice", Stage = "Staging", Accuracy = 0.85, CreatedAt = "2024-02-04" }
-        };
+            new Run { Name = "ResNet-50-v1", Tags = "vision, classification", Owner = "Alice", Stage = "Production", Accuracy = 0.94, CreatedAt = "2024-02-01" },
+            new Run { Name = "BERT-Base-Uncased", Tags = "nlp, transformer", Owner = "Bob", Stage = "Staging", Accuracy = 0.89, CreatedAt = "2024-02-03" },
+            new Run { Name = "YOLOv8-Nano", Tags = "vision, detection", Owner = "Charlie", Stage = "Production", Accuracy = 0.91, CreatedAt = "2024-02-04" },
+            new Run { Name = "GPT-2-Large", Tags = "nlp, generation", Owner = "Alice", Stage = "Staging", Accuracy = 0.85, CreatedAt = "2024-02-04" }
+        });
 
-    var filteredRuns = runs.Where(r =>
+    var filteredRuns = runs.Value.Where(r =>
         (string.IsNullOrEmpty(searchTerm.Value) || r.Name.Contains(searchTerm.Value, StringComparison.OrdinalIgnoreCase)) &&
-        (selectedTag.Value == "All Tags" || r.Tags.Contains(selectedTag.Value))
+        (selectedTag.Value == "All Tags" || r.Tags.Contains(selectedTag.Value)) &&
+        (selectedOwner.Value == "All Owners" || r.Owner == selectedOwner.Value)
     ).ToList();
 
     var labeledInput = (string label, object input) =>
@@ -42,25 +54,22 @@ public class RunsView : ViewBase
             | Text.Block(label).Bold()
             | input;
 
-    var header = Layout.Horizontal().Align(Align.Center).Gap(4)
-        | Text.H2("Experiment Runs")
-        | Text.P($"{filteredRuns.Count} runs")
-        | searchTerm.ToTextInput().Placeholder("Search runs...").Width(200)
-        | new Spacer()
-        | Layout.Horizontal().Gap(2)
-            | new Button("New Run", () => isDialogOpen.Set(true)).Primary()
-            | (new DropDownMenu(
-                evt => selectedTag.Set(evt.Value?.ToString() ?? "All Tags"),
-                new Button(selectedTag.Value).Icon(Icons.Tag))
-                | MenuItem.Default("All Tags").Tag("All Tags")
-                | MenuItem.Default("vision").Tag("vision")
-                | MenuItem.Default("nlp").Tag("nlp"))
-            | (new DropDownMenu(evt => client.Toast($"Selected Owner: {evt.Value}"),
-                new Button("All Owners").Icon(Icons.User))
-                | MenuItem.Default("All Owners").Tag("All Owners")
-                | MenuItem.Default("Alice").Tag("Alice")
-                | MenuItem.Default("Bob").Tag("Bob")
-                | MenuItem.Default("Charlie").Tag("Charlie"));
+    var tagOptions = new[] { "All Tags", "vision", "nlp" }.ToOptions();
+    var ownerOptions = new[] { "All Owners", "Alice", "Bob", "Charlie" }.ToOptions();
+
+    var topHeader = Layout.Grid().Columns(2)
+        | (Layout.Horizontal().Align(Align.Left) | Text.H1("Experiment Runs"))
+        | (Layout.Horizontal().Align(Align.Right) | new Button("New Run", () => isDialogOpen.Set(true)).Primary());
+
+    var middleHeader = Layout.Grid().Columns(2)
+        | (Layout.Horizontal().Align(Align.Left) | Text.P($"{filteredRuns.Count} runs"))
+        | (Layout.Horizontal().Align(Align.Right)
+            | selectedTag.ToSelectInput(tagOptions).Width(150));
+
+    var bottomHeader = Layout.Grid().Columns(2)
+        | (Layout.Horizontal().Align(Align.Left) | searchTerm.ToTextInput().Placeholder("Search runs...").Width(250))
+        | (Layout.Horizontal().Align(Align.Right)
+            | selectedOwner.ToSelectInput(ownerOptions).Width(150));
 
     var table = new Table()
         | new TableRow()
@@ -84,10 +93,11 @@ public class RunsView : ViewBase
           | new TableCell(new Button("View Charts", () => _onViewMetrics(run.Name)).Secondary());
     }
 
-
-
-    return Layout.Vertical().Gap(6)
-        | header
+    return Layout.Vertical().Gap(8).Padding(8)
+        | (Layout.Vertical().Gap(0)
+            | topHeader
+            | middleHeader
+            | bottomHeader)
         | new Card(table)
         | (isDialogOpen.Value ? new Dialog(
             _ => isDialogOpen.Set(false),
@@ -103,6 +113,16 @@ public class RunsView : ViewBase
                 new Button("Cancel", () => isDialogOpen.Set(false)),
                 new Button("Log Run", () =>
                 {
+                  var newRun = new Run
+                  {
+                    Name = runName.Value,
+                    Tags = runTags.Value,
+                    Owner = runOwner.Value,
+                    Stage = "Staging",
+                    Accuracy = 0.0,
+                    CreatedAt = "2024-02-05" // Simplification for now
+                  };
+                  runs.Set([.. runs.Value, newRun]);
                   client.Toast($"Logged run: {runName.Value}");
                   isDialogOpen.Set(false);
                   runName.Set("");
