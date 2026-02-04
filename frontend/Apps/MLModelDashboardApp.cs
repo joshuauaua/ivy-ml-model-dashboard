@@ -1,0 +1,82 @@
+using Frontend.Views;
+
+namespace Frontend.Apps;
+
+[App("dashboard")]
+public class MLModelDashboardApp : ViewBase
+{
+  public override object? Build()
+  {
+    var client = UseService<IClientProvider>();
+    var selectedItem = UseState("workspace");
+    var selectedRunForMetrics = UseState("");
+
+    // We'll use the tags directly as state keys to simplify the mapping
+    MenuItem[] menuItems = new[]
+    {
+            MenuItem.Default("Development").Icon(Icons.Code).Children(
+                MenuItem.Default("Workspace").Icon(Icons.Package).Tag("workspace"),
+                MenuItem.Default("Live").Icon(Icons.Zap).Tag("live")
+            ),
+            MenuItem.Default("Experiments").Icon(Icons.Database).Children(
+                MenuItem.Default("Runs").Icon(Icons.Play).Tag("runs"),
+                MenuItem.Default("Deployments").Icon(Icons.Table).Tag("deployments")
+            ),
+            MenuItem.Default("Recent Activity").Icon(Icons.Cpu).Children(
+                MenuItem.Default("Recent Runs").Icon(Icons.Play).Children(
+                    MenuItem.Default("ResNet-50-v1").Tag("run:ResNet-50-v1"),
+                    MenuItem.Default("BERT-Base").Tag("run:BERT-Base")
+                ),
+                MenuItem.Default("Recent Deployments").Icon(Icons.Table).Children(
+                    MenuItem.Default("Prod-ResNet").Tag("dep-1"),
+                    MenuItem.Default("Staging-YOLO").Tag("dep-2")
+                )
+            )
+        };
+
+    var menu = new SidebarMenu(
+        onSelect: evt =>
+        {
+          var tag = evt.Value?.ToString();
+          if (tag == null) return;
+
+          // Simple internal router based on tag patterns
+          if (tag.StartsWith("run:"))
+          {
+            selectedItem.Set("runs");
+            selectedRunForMetrics.Set(tag.Split(':')[1]);
+          }
+          else if (tag.StartsWith("dep-"))
+          {
+            selectedItem.Set("deployments");
+            selectedRunForMetrics.Set("");
+          }
+          else
+          {
+            selectedItem.Set(tag);
+            selectedRunForMetrics.Set("");
+          }
+
+          client.Toast($"Viewing {tag}");
+        },
+        items: menuItems
+    );
+
+    object dashboardContent = selectedItem.Value switch
+    {
+      "workspace" => new WorkspaceView(),
+      "runs" when !string.IsNullOrEmpty(selectedRunForMetrics.Value) =>
+          new RunMetricsView(selectedRunForMetrics.Value, () => selectedRunForMetrics.Set("")),
+      "runs" => new RunsView(val => selectedRunForMetrics.Set(val)),
+      "deployments" => new DeploymentsView(),
+      "live" => new LiveView(),
+      _ => new WorkspaceView()
+    };
+
+    return new SidebarLayout(
+        mainContent: dashboardContent,
+        sidebarContent: menu,
+        sidebarHeader: Text.Lead("ML Model Dashboard")
+    );
+  }
+}

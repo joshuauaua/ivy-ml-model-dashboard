@@ -1,0 +1,42 @@
+# .NET Core
+bin/
+obj/
+out/
+[Dd]ebug/
+[Rr]elease/
+
+# Visual Studio
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+
+# Rider
+.idea/
+
+# macOS
+.DS_Store
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Aa]pp[Pp]ackages/
+[Bb]undle[Aa]rtifacts/
+pkg/
+publish/
+scc/
+TestResults/
+[Tt]est[Rr]esults/
+[Cc]heckouts/
+
+# Ivy specific (if any)
+.gemini/
+brain/
