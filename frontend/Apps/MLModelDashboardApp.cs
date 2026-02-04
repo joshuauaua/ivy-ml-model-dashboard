@@ -14,16 +14,15 @@ public class MLModelDashboardApp : ViewBase
     // We'll use the tags directly as state keys to simplify the mapping
     MenuItem[] menuItems = new[]
     {
-            MenuItem.Default("Development").Icon(Icons.Code).Children(
-                MenuItem.Default("Workspace").Icon(Icons.Package).Tag("workspace"),
-                MenuItem.Default("Live").Icon(Icons.Zap).Tag("live")
-            ),
-            MenuItem.Default("Experiments").Icon(Icons.Database).Children(
-                MenuItem.Default("Runs").Icon(Icons.Play).Tag("runs"),
-                MenuItem.Default("Deployments").Icon(Icons.Table).Tag("deployments")
-            ),
-            MenuItem.Default("Recent Activity").Icon(Icons.Cpu).Children(
-                MenuItem.Default("Recent Runs").Icon(Icons.Play).Children(
+
+                MenuItem.Default("Options").Icon(Icons.Package).Children(
+                    MenuItem.Default("Workspace").Tag("workspace"),
+                    MenuItem.Default("Live").Tag("live"),
+                    MenuItem.Default("Runs").Tag("runs"),
+                    MenuItem.Default("Deployments").Tag("deployments")
+                ),
+
+                MenuItem.Default("Recent Runs").Icon(Icons.Cpu).Children(
                     MenuItem.Default("ResNet-50-v1").Tag("run:ResNet-50-v1"),
                     MenuItem.Default("BERT-Base").Tag("run:BERT-Base")
                 ),
@@ -31,7 +30,7 @@ public class MLModelDashboardApp : ViewBase
                     MenuItem.Default("Prod-ResNet").Tag("dep-1"),
                     MenuItem.Default("Staging-YOLO").Tag("dep-2")
                 )
-            )
+
         };
 
     var menu = new SidebarMenu(
