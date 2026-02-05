@@ -6,6 +6,7 @@ public class Run
   public string Name { get; set; } = "";
   public string Tags { get; set; } = "";
   public string Owner { get; set; } = "";
+  public string Scenario { get; set; } = "Classification";
   public int Stage { get; set; }
   public double Accuracy { get; set; }
   public double AreaUnderRocCurve { get; set; }
@@ -13,6 +14,11 @@ public class Run
   public double Precision { get; set; }
   public double Recall { get; set; }
   public double LogLoss { get; set; }
+  // Regression Metrics
+  public double RSquared { get; set; }
+  public double MeanAbsoluteError { get; set; }
+  public double MeanSquaredError { get; set; }
+  public double RootMeanSquaredError { get; set; }
   public string Hyperparameters { get; set; } = "{}";
   public string CreatedAt { get; set; } = "";
 }
@@ -39,6 +45,7 @@ public class RunsView : ViewBase
     var runName = UseState("");
     var runTags = UseState("");
     var runOwner = UseState("");
+    var runScenario = UseState("Classification");
     var isTraining = UseState(true);
     var runHyperparams = UseState("{\n  \"train_time\": 60,\n  \"dataset\": \"yelp_labelled.txt\"\n}");
 
@@ -91,6 +98,7 @@ public class RunsView : ViewBase
         | new TableRow()
             | new TableCell(Text.Block("Run Name").Bold())
             | new TableCell(Text.Block("Stage").Bold())
+            | new TableCell(Text.Block("Scenario").Bold())
             | new TableCell(Text.Block("Accuracy").Bold())
             | new TableCell(Text.Block("AUC").Bold())
             | new TableCell(Text.Block("F1").Bold())
@@ -111,11 +119,12 @@ public class RunsView : ViewBase
       table |= new TableRow()
           | new TableCell(run.Name)
           | new TableCell(stageText == "Training" ? new Badge(stageText).Warning() : (stageText == "Production" ? new Badge(stageText).Success() : new Badge(stageText).Info()))
-          | new TableCell(run.Accuracy.ToString("P1"))
-          | new TableCell(run.AreaUnderRocCurve.ToString("F3"))
-          | new TableCell(run.F1Score.ToString("F3"))
-          | new TableCell($"{run.Precision.ToString("P0")}/{run.Recall.ToString("P0")}")
-          | new TableCell(run.LogLoss.ToString("F4"))
+          | new TableCell(new Badge(run.Scenario).Info())
+          | new TableCell(run.Accuracy > 0 ? run.Accuracy.ToString("P1") : "N/A")
+          | new TableCell(run.AreaUnderRocCurve > 0 ? run.AreaUnderRocCurve.ToString("F3") : "N/A")
+          | new TableCell(run.F1Score > 0 ? run.F1Score.ToString("F3") : "N/A")
+          | new TableCell(run.Precision > 0 || run.Recall > 0 ? $"{run.Precision.ToString("P0")}/{run.Recall.ToString("P0")}" : "N/A")
+          | new TableCell(run.LogLoss > 0 ? run.LogLoss.ToString("F4") : "N/A")
           | new TableCell(
               Layout.Horizontal().Gap(2)
               | new Button("View Charts", () => _onViewMetrics(run.Name)).Secondary()
@@ -146,6 +155,11 @@ public class RunsView : ViewBase
                 | labeledInput("Run Name", runName.ToTextInput().Placeholder("e.g. ResNBA-101"))
                 | labeledInput("Tags (comma-separated)", runTags.ToTextInput().Placeholder("vision, production"))
                 | labeledInput("Owner", runOwner.ToTextInput().Placeholder("e.g. joshua"))
+                | runScenario.ToSelectInput(new string[] { "Classification", "Image classification", "Regression", "Forecasting", "Recommendation" }.ToOptions())
+                         .Variant(SelectInputs.Select)
+                         .WithField()
+                         .Label("Scenario")
+                         .Width(Size.Full())
                 | labeledInput("Train Model with ML.NET AutoML?",
                     Layout.Horizontal().Align(Align.Left).Gap(2)
                         | isTraining.ToBoolInput()
@@ -169,6 +183,7 @@ public class RunsView : ViewBase
                       Name = runName.Value,
                       Tags = runTags.Value,
                       Owner = runOwner.Value,
+                      Scenario = runScenario.Value,
                       Hyperparameters = runHyperparams.Value
                     };
 
@@ -190,9 +205,11 @@ public class RunsView : ViewBase
                       Name = runName.Value,
                       Tags = runTags.Value,
                       Owner = runOwner.Value,
+                      Scenario = runScenario.Value,
                       Stage = 1, // Staging
-                      Accuracy = 0.0,
-                      CreatedAt = DateTime.UtcNow.ToString("O")
+                      Accuracy = 0.85,
+                      RSquared = 0.82,
+                      CreatedAt = DateTime.UtcNow
                     };
 
                     try

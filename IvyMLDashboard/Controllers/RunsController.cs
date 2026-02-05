@@ -48,6 +48,7 @@ namespace IvyMLDashboard.Controllers
         Name = request.Name,
         Tags = request.Tags,
         Owner = request.Owner,
+        Scenario = request.Scenario,
         Hyperparameters = request.Hyperparameters,
         Stage = RunStage.Training,
         Accuracy = 0.0,
@@ -106,6 +107,7 @@ namespace IvyMLDashboard.Controllers
       public string Name { get; set; } = string.Empty;
       public string Tags { get; set; } = string.Empty;
       public string Owner { get; set; } = string.Empty;
+      public string Scenario { get; set; } = "Classification";
       public string Hyperparameters { get; set; } = "{}";
     }
   }

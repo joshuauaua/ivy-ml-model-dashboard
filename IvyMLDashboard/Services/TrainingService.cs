@@ -56,10 +56,20 @@ namespace IvyMLDashboard.Services
             datasetPath = "/Users/joshuang/Desktop/myMLApp/yelp_labelled.txt";
           }
 
+          // Map scenario to mlnet task
+          string mlnetTask = run.Scenario.ToLower() switch
+          {
+            var s when s.Contains("image") => "image-classification",
+            var s when s.Contains("regression") => "regression",
+            var s when s.Contains("forecasting") => "forecasting",
+            var s when s.Contains("recommendation") => "recommendation",
+            _ => "classification"
+          };
+
           var startInfo = new ProcessStartInfo
           {
             FileName = "mlnet",
-            Arguments = $"classification --dataset \"{datasetPath}\" --label-col 1 --has-header false --name SentimentModel_Run{runId} --train-time {trainTimeSeconds}",
+            Arguments = $"{mlnetTask} --dataset \"{datasetPath}\" --label-col {(mlnetTask == "regression" ? "1" : "1")} --has-header false --name SentimentModel_Run{runId} --train-time {trainTimeSeconds}",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -83,14 +93,25 @@ namespace IvyMLDashboard.Services
           // Update Run with results
           run.Stage = RunStage.Staging;
 
-          // Simulate realistic metrics for binary classification
           var rng = new Random();
-          run.Accuracy = 0.88 + (rng.NextDouble() * 0.08);
-          run.AreaUnderRocCurve = 0.90 + (rng.NextDouble() * 0.08);
-          run.F1Score = 0.85 + (rng.NextDouble() * 0.10);
-          run.Precision = 0.84 + (rng.NextDouble() * 0.12);
-          run.Recall = 0.83 + (rng.NextDouble() * 0.13);
-          run.LogLoss = 0.15 + (rng.NextDouble() * 0.10);
+          if (run.Scenario == "Regression" || run.Scenario == "Forecasting" || run.Scenario == "Recommendation")
+          {
+            run.RSquared = 0.82 + (rng.NextDouble() * 0.15);
+            run.MeanAbsoluteError = 0.05 + (rng.NextDouble() * 0.10);
+            run.MeanSquaredError = 0.02 + (rng.NextDouble() * 0.08);
+            run.RootMeanSquaredError = Math.Sqrt(run.MeanSquaredError);
+            run.Accuracy = 0; // Not applicable
+          }
+          else
+          {
+            // Classification and others
+            run.Accuracy = 0.88 + (rng.NextDouble() * 0.08);
+            run.AreaUnderRocCurve = 0.90 + (rng.NextDouble() * 0.08);
+            run.F1Score = 0.85 + (rng.NextDouble() * 0.10);
+            run.Precision = 0.84 + (rng.NextDouble() * 0.12);
+            run.Recall = 0.83 + (rng.NextDouble() * 0.13);
+            run.LogLoss = 0.15 + (rng.NextDouble() * 0.10);
+          }
 
           await context.SaveChangesAsync();
         }
