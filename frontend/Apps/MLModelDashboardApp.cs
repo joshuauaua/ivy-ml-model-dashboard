@@ -18,6 +18,7 @@ public class MLModelDashboardApp : ViewBase
                 MenuItem.Default("Options").Icon(Icons.Package).Children(
                     MenuItem.Default("Workspace").Tag("workspace"),
                     MenuItem.Default("Live").Tag("live"),
+                    MenuItem.Default("Demo").Tag("demo"),
                     MenuItem.Default("Runs").Tag("runs"),
                     MenuItem.Default("Deployments").Tag("deployments")
                 ),
@@ -67,6 +68,7 @@ public class MLModelDashboardApp : ViewBase
       "runs" => new RunsView(val => selectedRunForMetrics.Set(val)),
       "deployments" => new DeploymentsView(),
       "live" => new LiveView(),
+      "demo" => new Frontend.Views.DemoView(),
       _ => new WorkspaceView()
     };
 

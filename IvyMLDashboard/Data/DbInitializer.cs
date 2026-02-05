@@ -19,7 +19,8 @@ namespace IvyMLDashboard.Data
                 new Run { Name = "ResNet-50-v1", Tags = "vision,classification", Owner = "Alice", Stage = RunStage.Production, Accuracy = 0.94, CreatedAt = DateTime.UtcNow.AddDays(-10) },
                 new Run { Name = "BERT-Base-Uncased", Tags = "nlp,transformer", Owner = "Bob", Stage = RunStage.Staging, Accuracy = 0.89, CreatedAt = DateTime.UtcNow.AddDays(-5) },
                 new Run { Name = "YOLOv8-Nano", Tags = "vision,detection", Owner = "Charlie", Stage = RunStage.Production, Accuracy = 0.91, CreatedAt = DateTime.UtcNow.AddDays(-2) },
-                new Run { Name = "GPT-2-Large", Tags = "nlp,generation", Owner = "Alice", Stage = RunStage.Staging, Accuracy = 0.85, CreatedAt = DateTime.UtcNow.AddHours(-12) }
+                new Run { Name = "GPT-2-Large", Tags = "nlp,generation", Owner = "Alice", Stage = RunStage.Staging, Accuracy = 0.85, CreatedAt = DateTime.UtcNow.AddHours(-12) },
+                new Run { Name = "SentimentModel (ML.NET)", Tags = "nlp,classification,mlnet", Owner = "Josh", Stage = RunStage.Production, Accuracy = 0.92, CreatedAt = DateTime.UtcNow.AddMinutes(-30) }
       };
 
       context.Runs.AddRange(runs);

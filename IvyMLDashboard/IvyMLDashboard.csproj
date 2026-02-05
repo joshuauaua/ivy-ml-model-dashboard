@@ -13,6 +13,17 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.2" />
+    <PackageReference Include="Microsoft.ML" Version="3.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="/Users/joshuang/Desktop/myMLApp/SentimentModel/SentimentModel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="/Users/joshuang/Desktop/myMLApp/SentimentModel/SentimentModel.mlnet" Link="SentimentModel.mlnet">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
