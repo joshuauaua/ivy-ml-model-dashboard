@@ -8,6 +8,12 @@ public class Run
   public string Owner { get; set; } = "";
   public int Stage { get; set; }
   public double Accuracy { get; set; }
+  public double AreaUnderRocCurve { get; set; }
+  public double F1Score { get; set; }
+  public double Precision { get; set; }
+  public double Recall { get; set; }
+  public double LogLoss { get; set; }
+  public string Hyperparameters { get; set; } = "{}";
   public string CreatedAt { get; set; } = "";
 }
 
@@ -34,7 +40,7 @@ public class RunsView : ViewBase
     var runTags = UseState("");
     var runOwner = UseState("");
     var isTraining = UseState(true);
-    var runHyperparams = UseState("{\n  \"train_time\": 60\n}");
+    var runHyperparams = UseState("{\n  \"train_time\": 60,\n  \"dataset\": \"yelp_labelled.txt\"\n}");
 
     // UseQuery for automatic updates
     var runsQuery = UseQuery<List<Run>, string>(
@@ -84,11 +90,12 @@ public class RunsView : ViewBase
     var table = new Table()
         | new TableRow()
             | new TableCell(Text.Block("Run Name").Bold())
-            | new TableCell(Text.Block("Tags").Bold())
-            | new TableCell(Text.Block("Owner").Bold())
             | new TableCell(Text.Block("Stage").Bold())
             | new TableCell(Text.Block("Accuracy").Bold())
-            | new TableCell(Text.Block("Created At").Bold())
+            | new TableCell(Text.Block("AUC").Bold())
+            | new TableCell(Text.Block("F1").Bold())
+            | new TableCell(Text.Block("Prec/Rec").Bold())
+            | new TableCell(Text.Block("LogLoss").Bold())
             | new TableCell(Text.Block("Actions").Bold());
 
     foreach (var run in filteredRuns)
@@ -103,11 +110,12 @@ public class RunsView : ViewBase
 
       table |= new TableRow()
           | new TableCell(run.Name)
-          | new TableCell(new Badge(run.Tags).Info())
-          | new TableCell(run.Owner)
           | new TableCell(stageText == "Training" ? new Badge(stageText).Warning() : (stageText == "Production" ? new Badge(stageText).Success() : new Badge(stageText).Info()))
-          | new TableCell(run.Accuracy.ToString("P0"))
-          | new TableCell(DateTime.TryParse(run.CreatedAt, out var dt) ? dt.ToString("yyyy-MM-dd HH:mm") : run.CreatedAt)
+          | new TableCell(run.Accuracy.ToString("P1"))
+          | new TableCell(run.AreaUnderRocCurve.ToString("F3"))
+          | new TableCell(run.F1Score.ToString("F3"))
+          | new TableCell($"{run.Precision.ToString("P0")}/{run.Recall.ToString("P0")}")
+          | new TableCell(run.LogLoss.ToString("F4"))
           | new TableCell(
               Layout.Horizontal().Gap(2)
               | new Button("View Charts", () => _onViewMetrics(run.Name)).Secondary()
@@ -119,7 +127,6 @@ public class RunsView : ViewBase
                 if (response.IsSuccessStatusCode)
                 {
                   client.Toast($"Promoted {run.Name} to Production!");
-                  // Auto-polling will pick this up within 3 seconds
                 }
               }).Primary().Icon(Icons.Zap) : null)
             );
@@ -144,6 +151,7 @@ public class RunsView : ViewBase
                         | isTraining.ToBoolInput()
                         | Text.Block("Enable to trigger background training session").Italic())
                 | labeledInput("Hyperparameters (JSON Format)", runHyperparams.ToTextInput())
+                | Text.Block("Available datasets: yelp_labelled.txt, amazon_cells_labelled.txt, imdb_labelled.txt").Italic().Small()
             ),
             new DialogFooter(
                 new Button("Cancel", () => isDialogOpen.Set(false)),
@@ -169,7 +177,6 @@ public class RunsView : ViewBase
                       var json = System.Text.Json.JsonSerializer.Serialize(trainRequest);
                       var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
                       var response = await httpClient.PostAsync("api/runs/train", content);
-                      // Auto-polling will pick this up
                     }
                     catch (Exception ex)
                     {
@@ -193,11 +200,6 @@ public class RunsView : ViewBase
                       var json = System.Text.Json.JsonSerializer.Serialize(staticRun);
                       var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
                       var response = await httpClient.PostAsync("api/runs", content);
-                      if (response.IsSuccessStatusCode)
-                      {
-                        client.Toast($"Logged static run: {runName.Value}");
-                        // Auto-polling will pick this up
-                      }
                     }
                     catch (Exception ex)
                     {

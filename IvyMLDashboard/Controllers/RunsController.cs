@@ -48,6 +48,7 @@ namespace IvyMLDashboard.Controllers
         Name = request.Name,
         Tags = request.Tags,
         Owner = request.Owner,
+        Hyperparameters = request.Hyperparameters,
         Stage = RunStage.Training,
         Accuracy = 0.0,
         CreatedAt = DateTime.UtcNow
@@ -77,6 +78,22 @@ namespace IvyMLDashboard.Controllers
     {
       var run = await _context.Runs.FindAsync(id);
       if (run == null) return NotFound();
+
+      try
+      {
+        // mlnet saves models in a folder named after the --name argument
+        string sourcePath = Path.Combine("/Users/joshuang/Desktop/myMLApp", $"SentimentModel_Run{id}", $"SentimentModel_Run{id}.mlnet");
+        string destPath = Path.Combine("/Users/joshuang/Desktop/myMLApp", "SentimentModel", "SentimentModel.mlnet");
+
+        if (System.IO.File.Exists(sourcePath))
+        {
+          System.IO.File.Copy(sourcePath, destPath, true);
+        }
+      }
+      catch (Exception ex)
+      {
+        return StatusCode(500, $"Failed to copy model file: {ex.Message}");
+      }
 
       run.Stage = RunStage.Production;
       await _context.SaveChangesAsync();

@@ -33,17 +33,36 @@ public class DemoView : ViewBase
                       isAnalyzing.Set(true);
                       try
                       {
-                        await Task.Delay(800); // Simulate network latency
+                        using var httpClient = new System.Net.Http.HttpClient();
+                        httpClient.BaseAddress = new Uri("http://localhost:5153/");
 
-                        bool positive = reviewText.Value.Length % 2 == 0;
-                        if (reviewText.Value.Contains("good") || reviewText.Value.Contains("great") || reviewText.Value.Contains("amazing")) positive = true;
-                        if (reviewText.Value.Contains("bad") || reviewText.Value.Contains("awful") || reviewText.Value.Contains("poor")) positive = false;
+                        var request = new { Text = reviewText.Value };
+                        var json = System.Text.Json.JsonSerializer.Serialize(request);
+                        var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
-                        predictionResult.Set(positive ? "Positive" : "Negative");
-                        confidenceScore.Set((85 + (reviewText.Value.Length % 15)).ToString() + ".5%");
-                        isPositive.Set(positive);
+                        var response = await httpClient.PostAsync("api/sentiment/predict", content);
+                        if (response.IsSuccessStatusCode)
+                        {
+                          var responseJson = await response.Content.ReadAsStringAsync();
+                          using var doc = System.Text.Json.JsonDocument.Parse(responseJson);
+                          var root = doc.RootElement;
 
-                        client.Toast("Analysis complete!");
+                          string prediction = root.GetProperty("prediction").GetString() ?? "---";
+                          float score = root.GetProperty("score").GetSingle();
+
+                          predictionResult.Set(prediction);
+                          confidenceScore.Set((score * 100).ToString("F1") + "%");
+                          isPositive.Set(prediction == "Positive");
+                          client.Toast("Analysis complete!");
+                        }
+                        else
+                        {
+                          client.Toast("Error calling sentiment API");
+                        }
+                      }
+                      catch (Exception ex)
+                      {
+                        client.Toast($"Error: {ex.Message}");
                       }
                       finally
                       {
