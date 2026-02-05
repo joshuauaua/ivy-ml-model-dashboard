@@ -61,15 +61,6 @@ public class RunMetricsView : ViewBase
           }
         }).Secondary().Destructive() : null);
 
-    // Metadata Card Builder
-    var kpiCard = (string label, string value, object icon) =>
-        new Card(
-            Layout.Horizontal().Gap(4).Align(Align.Center).Padding(4)
-                | icon
-                | Layout.Vertical().Gap(0)
-                    | Text.Block(label).Small().Muted()
-                    | Text.Block(value).Bold()
-        );
 
     // Metric Card Builder
     var metricCard = (string label, string value, string trend) =>
@@ -80,11 +71,17 @@ public class RunMetricsView : ViewBase
                 | new Badge(trend).Success().Small()
         );
 
-    var metadataGrid = Layout.Grid().Columns(4).Gap(4)
-        | kpiCard("Owner", run.Owner, Icons.User)
-        | kpiCard("Tags", run.Tags, Icons.Tag)
-        | kpiCard("Scenario", run.Scenario, Icons.Cpu)
-        | kpiCard("Stage", run.Stage switch { 0 => "Training", 1 => "Staging", 2 => "Production", _ => "Unknown" }, Icons.Layers);
+    var infoCard = (string label, string value) =>
+        new Card(
+            Layout.Vertical().Gap(1).Padding(4)
+                | Text.Block(label).Small().Muted()
+                | Text.H2(value)
+        );
+
+    var metadataGrid = Layout.Grid().Columns(3).Gap(4)
+        | infoCard("Owner", run.Owner)
+        | infoCard("Tags", run.Tags)
+        | infoCard("Scenario", run.Scenario);
 
     // Dynamic Metrics Grid based on Scenario
     object metricsGrid;
