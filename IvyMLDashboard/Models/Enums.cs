@@ -2,6 +2,7 @@ namespace IvyMLDashboard.Models
 {
     public enum RunStage
     {
+        Training,
         Staging,
         Production
     }

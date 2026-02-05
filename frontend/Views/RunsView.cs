@@ -32,7 +32,8 @@ public class RunsView : ViewBase
     var runName = UseState("");
     var runTags = UseState("");
     var runOwner = UseState("");
-    var runHyperparams = UseState("{\n  \"learning_rate\": 0.001,\n  \"batch_size\": 32\n}");
+    var isTraining = UseState(true);
+    var runHyperparams = UseState("{\n  \"train_time\": 60\n}");
 
     // Stateful Runs Data
     var runs = UseState(new List<Run>
@@ -87,7 +88,7 @@ public class RunsView : ViewBase
           | new TableCell(run.Name)
           | new TableCell(new Badge(run.Tags).Info())
           | new TableCell(run.Owner)
-          | new TableCell(new Badge(run.Stage).Success())
+          | new TableCell(run.Stage == "Training" ? new Badge(run.Stage).Warning() : new Badge(run.Stage).Success())
           | new TableCell(run.Accuracy.ToString("P0"))
           | new TableCell(run.CreatedAt)
           | new TableCell(new Button("View Charts", () => _onViewMetrics(run.Name)).Secondary());
@@ -107,23 +108,74 @@ public class RunsView : ViewBase
                 | labeledInput("Run Name", runName.ToTextInput().Placeholder("e.g. ResNBA-101"))
                 | labeledInput("Tags (comma-separated)", runTags.ToTextInput().Placeholder("vision, production"))
                 | labeledInput("Owner", runOwner.ToTextInput().Placeholder("e.g. joshua"))
-                | labeledInput("Hyperparameters (JSON Format)", runHyperparams.ToTextInput().Placeholder("e.g. {\"lr\": 0.01}"))
+                | labeledInput("Train Model with ML.NET AutoML?",
+                    Layout.Horizontal().Align(Align.Left).Gap(2)
+                        | isTraining.ToBoolInput()
+                        | Text.Block("Enable to trigger background training session").Italic())
+                | labeledInput("Hyperparameters (JSON Format)", runHyperparams.ToTextInput())
             ),
             new DialogFooter(
                 new Button("Cancel", () => isDialogOpen.Set(false)),
-                new Button("Log Run", () =>
+                new Button("Log Run", async () =>
                 {
-                  var newRun = new Run
+                  using var httpClient = new System.Net.Http.HttpClient();
+                  httpClient.BaseAddress = new Uri("http://localhost:5153/");
+
+                  if (isTraining.Value)
                   {
-                    Name = runName.Value,
-                    Tags = runTags.Value,
-                    Owner = runOwner.Value,
-                    Stage = "Staging",
-                    Accuracy = 0.0,
-                    CreatedAt = "2024-02-05" // Simplification for now
-                  };
-                  runs.Set([.. runs.Value, newRun]);
-                  client.Toast($"Logged run: {runName.Value}");
+                    client.Toast($"Triggering ML.NET AutoML training for {runName.Value}...");
+
+                    var trainRequest = new
+                    {
+                      Name = runName.Value,
+                      Tags = runTags.Value,
+                      Owner = runOwner.Value,
+                      Hyperparameters = runHyperparams.Value
+                    };
+
+                    try
+                    {
+                      var json = System.Text.Json.JsonSerializer.Serialize(trainRequest);
+                      var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                      var response = await httpClient.PostAsync("api/runs/train", content);
+                      if (response.IsSuccessStatusCode)
+                      {
+                        var responseJson = await response.Content.ReadAsStringAsync();
+                        var run = System.Text.Json.JsonSerializer.Deserialize<Run>(responseJson, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (run != null) runs.Set([.. runs.Value, run]);
+                      }
+                    }
+                    catch (Exception ex)
+                    {
+                      client.Toast($"Error triggering training: {ex.Message}");
+                    }
+                  }
+                  else
+                  {
+                    var staticRun = new Run
+                    {
+                      Name = runName.Value,
+                      Tags = runTags.Value,
+                      Owner = runOwner.Value,
+                      Stage = "Staging",
+                      Accuracy = 0.0,
+                      CreatedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
+                    };
+
+                    try
+                    {
+                      var json = System.Text.Json.JsonSerializer.Serialize(staticRun);
+                      var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                      await httpClient.PostAsync("api/runs", content);
+                      runs.Set([.. runs.Value, staticRun]);
+                      client.Toast($"Logged static run: {runName.Value}");
+                    }
+                    catch (Exception ex)
+                    {
+                      client.Toast($"Error logging run: {ex.Message}");
+                    }
+                  }
+
                   isDialogOpen.Set(false);
                   runName.Set("");
                   runTags.Set("");

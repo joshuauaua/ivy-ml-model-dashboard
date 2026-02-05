@@ -18,9 +18,9 @@ public class MLModelDashboardApp : ViewBase
                 MenuItem.Default("Options").Icon(Icons.Package).Children(
                     MenuItem.Default("Workspace").Tag("workspace"),
                     MenuItem.Default("Live").Tag("live"),
-                    MenuItem.Default("Demo").Tag("demo"),
                     MenuItem.Default("Runs").Tag("runs"),
-                    MenuItem.Default("Deployments").Tag("deployments")
+                    MenuItem.Default("Deployments").Tag("deployments"),
+                    MenuItem.Default("Demo").Tag("demo")
                 ),
 
                 MenuItem.Default("Recent Runs").Icon(Icons.Cpu).Children(

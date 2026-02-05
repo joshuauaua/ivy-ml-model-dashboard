@@ -8,6 +8,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite("Data Source=dashboard.db"));
 
 builder.Services.AddControllers();
+builder.Services.AddScoped<IvyMLDashboard.Services.ITrainingService, IvyMLDashboard.Services.TrainingService>();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
