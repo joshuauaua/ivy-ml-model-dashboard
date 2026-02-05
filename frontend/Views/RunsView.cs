@@ -2,10 +2,11 @@ namespace Frontend.Views;
 
 public class Run
 {
+  public int Id { get; set; }
   public string Name { get; set; } = "";
   public string Tags { get; set; } = "";
   public string Owner { get; set; } = "";
-  public string Stage { get; set; } = "Staging";
+  public int Stage { get; set; }
   public double Accuracy { get; set; }
   public string CreatedAt { get; set; } = "";
 }
@@ -36,13 +37,48 @@ public class RunsView : ViewBase
     var runHyperparams = UseState("{\n  \"train_time\": 60\n}");
 
     // Stateful Runs Data
-    var runs = UseState(new List<Run>
+    var runs = UseState(new List<Run>());
+
+    // Helper to fetch data
+    async Task fetchData()
     {
-            new Run { Name = "ResNet-50-v1", Tags = "vision, classification", Owner = "Alice", Stage = "Production", Accuracy = 0.94, CreatedAt = "2024-02-01" },
-            new Run { Name = "BERT-Base-Uncased", Tags = "nlp, transformer", Owner = "Bob", Stage = "Staging", Accuracy = 0.89, CreatedAt = "2024-02-03" },
-            new Run { Name = "YOLOv8-Nano", Tags = "vision, detection", Owner = "Charlie", Stage = "Production", Accuracy = 0.91, CreatedAt = "2024-02-04" },
-            new Run { Name = "GPT-2-Large", Tags = "nlp, generation", Owner = "Alice", Stage = "Staging", Accuracy = 0.85, CreatedAt = "2024-02-04" }
-        });
+      using var httpClient = new System.Net.Http.HttpClient();
+      httpClient.BaseAddress = new Uri("http://localhost:5153/");
+      try
+      {
+        var response = await httpClient.GetAsync("api/runs");
+        if (response.IsSuccessStatusCode)
+        {
+          var responseJson = await response.Content.ReadAsStringAsync();
+          var fetchedRuns = System.Text.Json.JsonSerializer.Deserialize<List<Run>>(responseJson, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+          if (fetchedRuns != null)
+          {
+            runs.Set(fetchedRuns);
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        client.Toast($"Error fetching runs: {ex.Message}");
+      }
+    }
+
+    // Initial load
+    UseEffect(async () =>
+    {
+      await fetchData();
+    }, EffectTrigger.OnMount());
+
+    // Polling for training status
+    UseEffect(async () =>
+    {
+      bool hasActiveTraining = runs.Value.Any(r => r.Stage == 3); // 3 = Training
+      if (hasActiveTraining)
+      {
+        await Task.Delay(3000);
+        await fetchData();
+      }
+    }, EffectTrigger.OnStateChange(runs));
 
     var filteredRuns = runs.Value.Where(r =>
         (string.IsNullOrEmpty(searchTerm.Value) || r.Name.Contains(searchTerm.Value, StringComparison.OrdinalIgnoreCase)) &&
@@ -84,13 +120,22 @@ public class RunsView : ViewBase
 
     foreach (var run in filteredRuns)
     {
+      string stageText = run.Stage switch
+      {
+        0 => "Staging",
+        1 => "Production",
+        2 => "Archived",
+        3 => "Training",
+        _ => "Unknown"
+      };
+
       table |= new TableRow()
           | new TableCell(run.Name)
           | new TableCell(new Badge(run.Tags).Info())
           | new TableCell(run.Owner)
-          | new TableCell(run.Stage == "Training" ? new Badge(run.Stage).Warning() : new Badge(run.Stage).Success())
+          | new TableCell(stageText == "Training" ? new Badge(stageText).Warning() : new Badge(stageText).Success())
           | new TableCell(run.Accuracy.ToString("P0"))
-          | new TableCell(run.CreatedAt)
+          | new TableCell(DateTime.TryParse(run.CreatedAt, out var dt) ? dt.ToString("yyyy-MM-dd HH:mm") : run.CreatedAt)
           | new TableCell(new Button("View Charts", () => _onViewMetrics(run.Name)).Secondary());
     }
 
@@ -140,9 +185,7 @@ public class RunsView : ViewBase
                       var response = await httpClient.PostAsync("api/runs/train", content);
                       if (response.IsSuccessStatusCode)
                       {
-                        var responseJson = await response.Content.ReadAsStringAsync();
-                        var run = System.Text.Json.JsonSerializer.Deserialize<Run>(responseJson, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                        if (run != null) runs.Set([.. runs.Value, run]);
+                        await fetchData();
                       }
                     }
                     catch (Exception ex)
@@ -152,23 +195,26 @@ public class RunsView : ViewBase
                   }
                   else
                   {
-                    var staticRun = new Run
+                    var staticRun = new
                     {
                       Name = runName.Value,
                       Tags = runTags.Value,
                       Owner = runOwner.Value,
-                      Stage = "Staging",
+                      Stage = 0, // Staging
                       Accuracy = 0.0,
-                      CreatedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
+                      CreatedAt = DateTime.UtcNow.ToString("O")
                     };
 
                     try
                     {
                       var json = System.Text.Json.JsonSerializer.Serialize(staticRun);
                       var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
-                      await httpClient.PostAsync("api/runs", content);
-                      runs.Set([.. runs.Value, staticRun]);
-                      client.Toast($"Logged static run: {runName.Value}");
+                      var response = await httpClient.PostAsync("api/runs", content);
+                      if (response.IsSuccessStatusCode)
+                      {
+                        await fetchData();
+                        client.Toast($"Logged static run: {runName.Value}");
+                      }
                     }
                     catch (Exception ex)
                     {
