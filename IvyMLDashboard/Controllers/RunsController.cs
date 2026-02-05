@@ -72,6 +72,18 @@ namespace IvyMLDashboard.Controllers
       return CreatedAtAction(nameof(GetRun), new { id = run.Id }, run);
     }
 
+    [HttpPost("{id}/promote")]
+    public async Task<ActionResult<Run>> PromoteRun(int id)
+    {
+      var run = await _context.Runs.FindAsync(id);
+      if (run == null) return NotFound();
+
+      run.Stage = RunStage.Production;
+      await _context.SaveChangesAsync();
+
+      return Ok(run);
+    }
+
     public class TrainRequest
     {
       public string Name { get; set; } = string.Empty;

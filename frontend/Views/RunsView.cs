@@ -36,51 +36,24 @@ public class RunsView : ViewBase
     var isTraining = UseState(true);
     var runHyperparams = UseState("{\n  \"train_time\": 60\n}");
 
-    // Stateful Runs Data
-    var runs = UseState(new List<Run>());
-
-    // Helper to fetch data
-    async Task fetchData()
-    {
-      using var httpClient = new System.Net.Http.HttpClient();
-      httpClient.BaseAddress = new Uri("http://localhost:5153/");
-      try
+    // UseQuery for automatic updates
+    var runsQuery = UseQuery<List<Run>, string>(
+      "runs",
+      async (key, ct) =>
       {
-        var response = await httpClient.GetAsync("api/runs");
-        if (response.IsSuccessStatusCode)
-        {
-          var responseJson = await response.Content.ReadAsStringAsync();
-          var fetchedRuns = System.Text.Json.JsonSerializer.Deserialize<List<Run>>(responseJson, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-          if (fetchedRuns != null)
-          {
-            runs.Set(fetchedRuns);
-          }
-        }
-      }
-      catch (Exception ex)
-      {
-        client.Toast($"Error fetching runs: {ex.Message}");
-      }
-    }
+        using var httpClient = new System.Net.Http.HttpClient();
+        httpClient.BaseAddress = new Uri("http://localhost:5153/");
+        var response = await httpClient.GetAsync("api/runs", ct);
+        response.EnsureSuccessStatusCode();
+        var responseJson = await response.Content.ReadAsStringAsync(ct);
+        return System.Text.Json.JsonSerializer.Deserialize<List<Run>>(responseJson, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Run>();
+      },
+      new QueryOptions { RefreshInterval = TimeSpan.FromSeconds(3) }
+    );
 
-    // Initial load
-    UseEffect(async () =>
-    {
-      await fetchData();
-    }, EffectTrigger.OnMount());
+    var currentRuns = runsQuery.Value ?? new List<Run>();
 
-    // Polling for training status
-    UseEffect(async () =>
-    {
-      bool hasActiveTraining = runs.Value.Any(r => r.Stage == 3); // 3 = Training
-      if (hasActiveTraining)
-      {
-        await Task.Delay(3000);
-        await fetchData();
-      }
-    }, EffectTrigger.OnStateChange(runs));
-
-    var filteredRuns = runs.Value.Where(r =>
+    var filteredRuns = currentRuns.Where(r =>
         (string.IsNullOrEmpty(searchTerm.Value) || r.Name.Contains(searchTerm.Value, StringComparison.OrdinalIgnoreCase)) &&
         (selectedTag.Value == "All Tags" || r.Tags.Contains(selectedTag.Value)) &&
         (selectedOwner.Value == "All Owners" || r.Owner == selectedOwner.Value)
@@ -122,10 +95,9 @@ public class RunsView : ViewBase
     {
       string stageText = run.Stage switch
       {
-        0 => "Staging",
-        1 => "Production",
-        2 => "Archived",
-        3 => "Training",
+        0 => "Training",
+        1 => "Staging",
+        2 => "Production",
         _ => "Unknown"
       };
 
@@ -133,10 +105,24 @@ public class RunsView : ViewBase
           | new TableCell(run.Name)
           | new TableCell(new Badge(run.Tags).Info())
           | new TableCell(run.Owner)
-          | new TableCell(stageText == "Training" ? new Badge(stageText).Warning() : new Badge(stageText).Success())
+          | new TableCell(stageText == "Training" ? new Badge(stageText).Warning() : (stageText == "Production" ? new Badge(stageText).Success() : new Badge(stageText).Info()))
           | new TableCell(run.Accuracy.ToString("P0"))
           | new TableCell(DateTime.TryParse(run.CreatedAt, out var dt) ? dt.ToString("yyyy-MM-dd HH:mm") : run.CreatedAt)
-          | new TableCell(new Button("View Charts", () => _onViewMetrics(run.Name)).Secondary());
+          | new TableCell(
+              Layout.Horizontal().Gap(2)
+              | new Button("View Charts", () => _onViewMetrics(run.Name)).Secondary()
+              | (run.Stage == 1 ? new Button("Promote", async () =>
+              {
+                using var httpClient = new System.Net.Http.HttpClient();
+                httpClient.BaseAddress = new Uri("http://localhost:5153/");
+                var response = await httpClient.PostAsync($"api/runs/{run.Id}/promote", null);
+                if (response.IsSuccessStatusCode)
+                {
+                  client.Toast($"Promoted {run.Name} to Production!");
+                  // Auto-polling will pick this up within 3 seconds
+                }
+              }).Primary().Icon(Icons.Zap) : null)
+            );
     }
 
     return Layout.Vertical().Gap(8).Padding(8)
@@ -183,10 +169,7 @@ public class RunsView : ViewBase
                       var json = System.Text.Json.JsonSerializer.Serialize(trainRequest);
                       var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
                       var response = await httpClient.PostAsync("api/runs/train", content);
-                      if (response.IsSuccessStatusCode)
-                      {
-                        await fetchData();
-                      }
+                      // Auto-polling will pick this up
                     }
                     catch (Exception ex)
                     {
@@ -200,7 +183,7 @@ public class RunsView : ViewBase
                       Name = runName.Value,
                       Tags = runTags.Value,
                       Owner = runOwner.Value,
-                      Stage = 0, // Staging
+                      Stage = 1, // Staging
                       Accuracy = 0.0,
                       CreatedAt = DateTime.UtcNow.ToString("O")
                     };
@@ -212,8 +195,8 @@ public class RunsView : ViewBase
                       var response = await httpClient.PostAsync("api/runs", content);
                       if (response.IsSuccessStatusCode)
                       {
-                        await fetchData();
                         client.Toast($"Logged static run: {runName.Value}");
+                        // Auto-polling will pick this up
                       }
                     }
                     catch (Exception ex)
