@@ -15,9 +15,9 @@ public class RunMetricsView : ViewBase
   {
     var client = UseService<IClientProvider>();
 
-    // Fetch the specific run details to get real data
-    var runQuery = UseQuery<Run, string>(
-      $"run:{_runName}",
+    // Fetch all runs to maintain cache consistency with the sidebar and main table
+    var runsQuery = UseQuery<List<Run>, string>(
+      "runs",
       async (key, ct) =>
       {
         using var httpClient = new System.Net.Http.HttpClient();
@@ -25,13 +25,13 @@ public class RunMetricsView : ViewBase
         var response = await httpClient.GetAsync("api/runs", ct);
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadAsStringAsync(ct);
-        var runs = System.Text.Json.JsonSerializer.Deserialize<List<Run>>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        return runs?.FirstOrDefault(r => r.Name == _runName) ?? new Run { Name = _runName };
+        return System.Text.Json.JsonSerializer.Deserialize<List<Run>>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Run>();
       },
       new QueryOptions { RefreshInterval = TimeSpan.FromSeconds(3) }
     );
 
-    var run = runQuery.Value ?? new Run { Name = _runName };
+    var runs = runsQuery.Value ?? new List<Run>();
+    var run = runs.FirstOrDefault(r => r.Name == _runName) ?? new Run { Name = _runName };
 
     var header = Layout.Horizontal().Align(Align.Center)
         | new Button("Back", _onBack).Secondary().Icon(Icons.ArrowLeft)
@@ -40,7 +40,26 @@ public class RunMetricsView : ViewBase
             | Text.H2(_runName)
             | (run.Stage == 2 ? new Badge("Production").Success() : (run.Stage == 1 ? new Badge("Staging").Info() : new Badge("Training").Warning()))
         | new Spacer()
-        | (run.Stage == 1 ? new Button("Promote to Prod").Primary().Icon(Icons.Zap) : null);
+        | (run.Stage == 1 ? new Button("Promote to Prod", async () =>
+        {
+          using var httpClient = new System.Net.Http.HttpClient();
+          httpClient.BaseAddress = new Uri("http://localhost:5153/");
+          var response = await httpClient.PostAsync($"api/runs/{run.Id}/promote", null);
+          if (response.IsSuccessStatusCode)
+          {
+            client.Toast($"Model {run.Name} is now LIVE!");
+          }
+        }).Primary().Icon(Icons.Zap) : null)
+        | (run.Stage == 2 ? new Button("Rollback", async () =>
+        {
+          using var httpClient = new System.Net.Http.HttpClient();
+          httpClient.BaseAddress = new Uri("http://localhost:5153/");
+          var response = await httpClient.PostAsync($"api/runs/{run.Id}/rollback", null);
+          if (response.IsSuccessStatusCode)
+          {
+            client.Toast($"{run.Name} rolled back to Staging.");
+          }
+        }).Secondary().Destructive() : null);
 
     // Metadata Card Builder
     var kpiCard = (string label, string value, object icon) =>

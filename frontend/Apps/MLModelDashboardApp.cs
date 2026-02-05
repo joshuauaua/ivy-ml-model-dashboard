@@ -11,42 +11,37 @@ public class MLModelDashboardApp : ViewBase
     var selectedItem = UseState("workspace");
     var selectedRunForMetrics = UseState("");
 
-    var runs = UseState(new List<Run>());
-
-    async Task fetchRecentRuns()
-    {
-      using var httpClient = new System.Net.Http.HttpClient();
-      httpClient.BaseAddress = new Uri("http://localhost:5153/");
-      try
+    // Sync with the same "runs" query used in RunsView for real-time updates
+    var runsQuery = UseQuery<List<Run>, string>(
+      "runs",
+      async (key, ct) =>
       {
-        var response = await httpClient.GetAsync("api/runs");
-        if (response.IsSuccessStatusCode)
-        {
-          var responseJson = await response.Content.ReadAsStringAsync();
-          var fetchedRuns = System.Text.Json.JsonSerializer.Deserialize<List<Run>>(responseJson, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-          if (fetchedRuns != null)
-          {
-            runs.Set(fetchedRuns.OrderByDescending(r => r.CreatedAt).Take(6).ToList());
-          }
-        }
-      }
-      catch { }
-    }
+        using var httpClient = new System.Net.Http.HttpClient();
+        httpClient.BaseAddress = new Uri("http://localhost:5153/");
+        var response = await httpClient.GetAsync("api/runs", ct);
+        response.EnsureSuccessStatusCode();
+        var responseJson = await response.Content.ReadAsStringAsync(ct);
+        return System.Text.Json.JsonSerializer.Deserialize<List<Run>>(responseJson, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Run>();
+      },
+      new QueryOptions { RefreshInterval = TimeSpan.FromSeconds(3) }
+    );
 
-    UseEffect(async () =>
-    {
-      await fetchRecentRuns();
-    }, EffectTrigger.OnMount());
+    var currentRuns = runsQuery.Value ?? new List<Run>();
 
-    // Optional: Refresh navigation periodically if there are active trainings
-    UseEffect(async () =>
-    {
-      await Task.Delay(10000);
-      await fetchRecentRuns();
-    }, EffectTrigger.OnStateChange(runs));
+    // Sort by creation time to show the most recent runs in the sidebar
+    var recentRunItems = currentRuns
+                          .OrderByDescending(r => r.Id)
+                          .Take(6)
+                          .Select(r => MenuItem.Default(r.Name).Tag($"run:{r.Name}"))
+                          .ToArray();
 
-    // We'll use the tags directly as state keys to simplify the mapping
-    var recentRunItems = runs.Value.Select(r => MenuItem.Default(r.Name).Tag($"run:{r.Name}")).ToArray();
+    // Recent Deployments = Promoted to Prod (Stage 2)
+    var recentDeploymentItems = currentRuns
+                                  .Where(r => r.Stage == 2)
+                                  .OrderByDescending(r => r.Id)
+                                  .Take(3)
+                                  .Select(r => MenuItem.Default(r.Name).Tag("deployments")) // Route to deployments view
+                                  .ToArray();
 
     MenuItem[] menuItems = new[]
     {
@@ -60,10 +55,7 @@ public class MLModelDashboardApp : ViewBase
                 ),
 
                 MenuItem.Default("Recent Runs").Icon(Icons.Cpu).Children(recentRunItems),
-                MenuItem.Default("Recent Deployments").Icon(Icons.Table).Children(
-                    MenuItem.Default("Prod-ResNet").Tag("dep-1"),
-                    MenuItem.Default("Staging-YOLO").Tag("dep-2")
-                )
+                MenuItem.Default("Recent Deployments").Icon(Icons.Table).Children(recentDeploymentItems)
 
         };
 

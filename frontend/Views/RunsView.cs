@@ -138,6 +138,16 @@ public class RunsView : ViewBase
                   client.Toast($"Promoted {run.Name} to Production!");
                 }
               }).Primary().Icon(Icons.Zap) : null)
+              | (run.Stage == 2 ? new Button("Rollback", async () =>
+              {
+                using var httpClient = new System.Net.Http.HttpClient();
+                httpClient.BaseAddress = new Uri("http://localhost:5153/");
+                var response = await httpClient.PostAsync($"api/runs/{run.Id}/rollback", null);
+                if (response.IsSuccessStatusCode)
+                {
+                  client.Toast($"Rolled back {run.Name} to Staging.");
+                }
+              }).Secondary().Small().Destructive() : null)
             );
     }
 

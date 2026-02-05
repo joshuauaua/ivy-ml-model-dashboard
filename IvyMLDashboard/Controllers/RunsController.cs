@@ -96,7 +96,29 @@ namespace IvyMLDashboard.Controllers
         return StatusCode(500, $"Failed to copy model file: {ex.Message}");
       }
 
+      // Enforce ONLY ONE production deployment: demote ALL existing production runs
+      var existingProdRuns = await _context.Runs.Where(r => r.Stage == RunStage.Production).ToListAsync();
+      foreach (var prodRun in existingProdRuns)
+      {
+        if (prodRun.Id != id)
+        {
+          prodRun.Stage = RunStage.Staging;
+        }
+      }
+
       run.Stage = RunStage.Production;
+      await _context.SaveChangesAsync();
+
+      return Ok(run);
+    }
+
+    [HttpPost("{id}/rollback")]
+    public async Task<ActionResult<Run>> RollbackRun(int id)
+    {
+      var run = await _context.Runs.FindAsync(id);
+      if (run == null) return NotFound();
+
+      run.Stage = RunStage.Staging;
       await _context.SaveChangesAsync();
 
       return Ok(run);
