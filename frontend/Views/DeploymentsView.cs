@@ -77,10 +77,12 @@ public class DeploymentsView : ViewBase
     }
 
     return Layout.Vertical().Gap(8).Padding(8)
-        | (Layout.Horizontal().Align(Align.Center)
-            | Text.H1("Model Deployment Registry")
-            | new Spacer()
-            | Text.P($"{deploymentRegistry.Count} models available").Muted())
+        | (Layout.Grid().Columns(2)
+            | (Layout.Horizontal().Align(Align.Left).Gap(4).Align(Align.Center)
+                | Text.H1("Model Deployment Registry")
+                | Text.P($"{deploymentRegistry.Count} models available").Muted())
+            | (Layout.Horizontal().Align(Align.Right)
+                | new Spacer()))
         | new Card(table);
   }
 }

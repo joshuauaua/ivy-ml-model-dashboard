@@ -23,7 +23,11 @@ public class LiveView : ViewBase
         };
 
     return Layout.Vertical().Gap(8).Padding(8)
-        | Text.H1("Live Production Stats")
+        | (Layout.Grid().Columns(2)
+            | (Layout.Horizontal().Align(Align.Left).Gap(4).Align(Align.Center)
+                | Text.H1("Live Production Stats"))
+            | (Layout.Horizontal().Align(Align.Right)
+                | new Spacer()))
 
         | new Card().Header("Infrastructure Health")
             | (Layout.Grid().Columns(3).Gap(4).Padding(6)

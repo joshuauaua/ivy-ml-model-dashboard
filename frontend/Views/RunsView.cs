@@ -81,11 +81,13 @@ public class RunsView : ViewBase
     var ownerOptions = new[] { "All Owners", "Alice", "Bob", "Charlie" }.ToOptions();
 
     var topHeader = Layout.Grid().Columns(2)
-        | (Layout.Horizontal().Align(Align.Left) | Text.H1("Experiment Runs"))
+        | (Layout.Horizontal().Align(Align.Left).Gap(4).Align(Align.Center)
+            | Text.H1("Experiment Runs")
+            | Text.H3($"{filteredRuns.Count} runs").Muted())
         | (Layout.Horizontal().Align(Align.Right) | new Button("New Run", () => isDialogOpen.Set(true)).Primary());
 
     var middleHeader = Layout.Grid().Columns(2)
-        | (Layout.Horizontal().Align(Align.Left) | Text.P($"{filteredRuns.Count} runs"))
+        | (Layout.Horizontal().Align(Align.Left) | new Spacer())
         | (Layout.Horizontal().Align(Align.Right)
             | selectedTag.ToSelectInput(tagOptions).Width(150));
 
@@ -97,13 +99,13 @@ public class RunsView : ViewBase
     var table = new Table()
         | new TableRow()
             | new TableCell(Text.Block("Run Name").Bold())
+            | new TableCell(Text.Block("Owner").Bold())
+            | new TableCell(Text.Block("Tags").Bold())
+            | new TableCell(Text.Block("Train Time").Bold())
+            | new TableCell(Text.Block("Dataset").Bold())
             | new TableCell(Text.Block("Stage").Bold())
             | new TableCell(Text.Block("Scenario").Bold())
             | new TableCell(Text.Block("Accuracy").Bold())
-            | new TableCell(Text.Block("AUC").Bold())
-            | new TableCell(Text.Block("F1").Bold())
-            | new TableCell(Text.Block("Prec/Rec").Bold())
-            | new TableCell(Text.Block("LogLoss").Bold())
             | new TableCell(Text.Block("Actions").Bold());
 
     foreach (var run in filteredRuns)
@@ -117,17 +119,16 @@ public class RunsView : ViewBase
       };
 
       table |= new TableRow()
-          | new TableCell(run.Name)
+          | new TableCell(new Button(run.Name, () => _onViewMetrics(run.Name)).Variant(ButtonVariant.Link))
+          | new TableCell(Text.Block(run.Owner))
+          | new TableCell(Layout.Horizontal().Gap(1).Wrap() | run.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(t => new Badge(t).Small()).ToArray())
+          | new TableCell(GetHyperparameter(run.Hyperparameters, "train_time"))
+          | new TableCell(GetHyperparameter(run.Hyperparameters, "dataset"))
           | new TableCell(stageText == "Training" ? new Badge(stageText).Warning() : (stageText == "Production" ? new Badge(stageText).Success() : new Badge(stageText).Info()))
           | new TableCell(new Badge(run.Scenario).Info())
           | new TableCell(run.Accuracy > 0 ? run.Accuracy.ToString("P1") : "N/A")
-          | new TableCell(run.AreaUnderRocCurve > 0 ? run.AreaUnderRocCurve.ToString("F3") : "N/A")
-          | new TableCell(run.F1Score > 0 ? run.F1Score.ToString("F3") : "N/A")
-          | new TableCell(run.Precision > 0 || run.Recall > 0 ? $"{run.Precision.ToString("P0")}/{run.Recall.ToString("P0")}" : "N/A")
-          | new TableCell(run.LogLoss > 0 ? run.LogLoss.ToString("F4") : "N/A")
           | new TableCell(
               Layout.Horizontal().Gap(2)
-              | new Button("View Charts", () => _onViewMetrics(run.Name)).Secondary()
               | (run.Stage == 1 ? new Button("Promote", async () =>
               {
                 using var httpClient = new System.Net.Http.HttpClient();
@@ -247,5 +248,19 @@ public class RunsView : ViewBase
             )
         ) : null);
 
+  }
+
+  private string GetHyperparameter(string json, string key)
+  {
+    try
+    {
+      using var doc = System.Text.Json.JsonDocument.Parse(json);
+      if (doc.RootElement.TryGetProperty(key, out var element))
+      {
+        return element.ToString();
+      }
+    }
+    catch { }
+    return "N/A";
   }
 }

@@ -75,7 +75,12 @@ public class WorkspaceView : ViewBase
         .ToList();
 
     return Layout.Vertical().Gap(8).Padding(8)
-        | Text.H1("Workspace Overview")
+        | (Layout.Grid().Columns(2)
+            | (Layout.Horizontal().Align(Align.Left).Gap(4).Align(Align.Center)
+                | Text.H1("Workspace Overview")
+                | Text.H3("Dashboard").Muted())
+            | (Layout.Horizontal().Align(Align.Right)
+                | new Spacer()))
 
         | (Layout.Grid().Columns(3).Gap(4)
             | metricCard("Total Runs", totalRuns.ToString(), "All Experiments")
