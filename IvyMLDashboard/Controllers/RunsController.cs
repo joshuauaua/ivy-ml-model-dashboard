@@ -84,11 +84,16 @@ namespace IvyMLDashboard.Controllers
       {
         // mlnet saves models in a folder named after the --name argument
         string sourcePath = Path.Combine("/Users/joshuang/Desktop/myMLApp", $"SentimentModel_Run{id}", $"SentimentModel_Run{id}.mlnet");
-        string destPath = Path.Combine("/Users/joshuang/Desktop/myMLApp", "SentimentModel", "SentimentModel.mlnet");
+        string destPathMyMLApp = Path.Combine("/Users/joshuang/Desktop/myMLApp", "SentimentModel", "SentimentModel.mlnet");
+        string destPathDashboard = Path.Combine(Directory.GetCurrentDirectory(), "SentimentModel.mlnet");
 
         if (System.IO.File.Exists(sourcePath))
         {
-          System.IO.File.Copy(sourcePath, destPath, true);
+          System.IO.File.Copy(sourcePath, destPathMyMLApp, true);
+          System.IO.File.Copy(sourcePath, destPathDashboard, true);
+          
+          // Trigger reload
+          SentimentModel.ConsoleApp.SentimentModel.ResetPredictEngine();
         }
       }
       catch (Exception ex)

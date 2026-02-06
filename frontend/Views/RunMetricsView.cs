@@ -1,3 +1,5 @@
+using Ivy.Charts;
+
 namespace Frontend.Views;
 
 public class RunMetricsView : ViewBase
@@ -110,40 +112,9 @@ public class RunMetricsView : ViewBase
         | Layout.Vertical().Padding(4)
             | metricsGrid;
 
-    // Optional visualization card based on scenario
-    var visualizationCard = run.Scenario switch
-    {
-      "Classification" or "Image classification" => new Card().Header("Confusion Matrix")
-          | Layout.Vertical().Align(Align.Center).Padding(4)
-              | Text.P("Predicted").Small()
-              | Layout.Horizontal().Gap(2)
-                  | Layout.Vertical().Align(Align.Center) | Text.P("Actual").Small()
-                  | Layout.Grid().Columns(2).Rows(2).Gap(2)
-                      | (Layout.Vertical().Align(Align.Center).Padding(4) | new Card() | Text.H3("942") | Text.P("TP").Small())
-                      | (Layout.Vertical().Align(Align.Center).Padding(4) | new Card() | Text.H3("58") | Text.P("FN").Small())
-                      | (Layout.Vertical().Align(Align.Center).Padding(4) | new Card() | Text.H3("23") | Text.P("FP").Small())
-                      | (Layout.Vertical().Align(Align.Center).Padding(4) | new Card() | Text.H3("877") | Text.P("TN").Small()),
-      "Regression" or "Forecasting" => new Card().Header("Residuals Plot (Simulated)")
-          | new AreaChart(new[] {
-                new { X = 0.0, Y = 0.5 }, new { X = 1.0, Y = 0.3 }, new { X = 2.0, Y = 0.7 },
-                new { X = 3.0, Y = 0.2 }, new { X = 4.0, Y = 0.4 }
-            }).Height(200),
-      _ => new Card().Header("Model Insights") | Text.Block("Standard evaluation completed for " + run.Scenario).Italic()
-    };
-
-    var hyperparameters = new Card().Header("Hyperparameters")
-        | Layout.Vertical().Gap(2).Padding(4)
-            | Text.Block(run.Hyperparameters).Small().Italic()
-            | new Spacer().Height(10)
-            | Text.P("ID: " + run.Id).Small().Muted();
-
     return Layout.Vertical().Gap(6).Padding(8)
         | header
         | metadataGrid
-        | Layout.Grid().Columns(2).Gap(6)
-            | mainMetrics
-            | Layout.Vertical().Gap(6)
-                | visualizationCard
-                | hyperparameters;
+        | mainMetrics;
   }
 }
