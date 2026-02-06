@@ -2,6 +2,15 @@ using Frontend.Views;
 
 namespace Frontend.Apps;
 
+public class Deployment
+{
+  public int Id { get; set; }
+  public string RunName { get; set; } = string.Empty;
+  public int Status { get; set; }
+  public string DeployedAt { get; set; } = string.Empty;
+  public int Health { get; set; }
+}
+
 [App("dashboard")]
 public class MLModelDashboardApp : ViewBase
 {
@@ -26,7 +35,23 @@ public class MLModelDashboardApp : ViewBase
       new QueryOptions { RefreshInterval = TimeSpan.FromSeconds(3) }
     );
 
+    // Deployments Query
+    var deploymentsQuery = UseQuery<List<Deployment>, string>(
+      "deployments",
+      async (key, ct) =>
+      {
+        using var httpClient = new System.Net.Http.HttpClient();
+        httpClient.BaseAddress = new Uri("http://localhost:5153/");
+        var response = await httpClient.GetAsync("api/deployments", ct);
+        response.EnsureSuccessStatusCode();
+        var responseJson = await response.Content.ReadAsStringAsync(ct);
+        return System.Text.Json.JsonSerializer.Deserialize<List<Deployment>>(responseJson, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Deployment>();
+      },
+      new QueryOptions { RefreshInterval = TimeSpan.FromSeconds(3) }
+    );
+
     var currentRuns = runsQuery.Value ?? new List<Run>();
+    var currentDeployments = deploymentsQuery.Value ?? new List<Deployment>();
 
     // Sort by creation time to show the most recent runs in the sidebar
     var recentRunItems = currentRuns
@@ -35,22 +60,21 @@ public class MLModelDashboardApp : ViewBase
                           .Select(r => MenuItem.Default(r.Name).Tag($"run:{r.Name}"))
                           .ToArray();
 
-    // Recent Deployments = Promoted to Prod (Stage 2)
-    var recentDeploymentItems = currentRuns
-                                  .Where(r => r.Stage == 2)
-                                  .OrderByDescending(r => r.Id)
-                                  .Take(3)
-                                  .Select(r => MenuItem.Default(r.Name).Tag("deployments")) // Route to deployments view
+    // Recent Deployments = From the Deployments table
+    var recentDeploymentItems = currentDeployments
+                                  .OrderByDescending(d => d.DeployedAt)
+                                  .Take(5)
+                                  .Select(d => MenuItem.Default(d.RunName).Tag("deployments")) // Route to deployments view
                                   .ToArray();
 
     MenuItem[] menuItems = new[]
     {
 
-                MenuItem.Default("Options").Icon(Icons.Package).Children(
+                MenuItem.Default("").Icon(Icons.Package).Children(
                     MenuItem.Default("Workspace").Tag("workspace"),
-                    MenuItem.Default("Live").Tag("live"),
                     MenuItem.Default("Runs").Tag("runs"),
                     MenuItem.Default("Deployments").Tag("deployments"),
+                    MenuItem.Default("Live").Tag("live"),
                     MenuItem.Default("Demo").Tag("demo")
                 ),
 

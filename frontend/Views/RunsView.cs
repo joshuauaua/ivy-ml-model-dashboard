@@ -135,7 +135,12 @@ public class RunsView : ViewBase
                 var response = await httpClient.PostAsync($"api/runs/{run.Id}/promote", null);
                 if (response.IsSuccessStatusCode)
                 {
-                  client.Toast($"Promoted {run.Name} to Production!");
+                  var responseJson = await response.Content.ReadAsStringAsync();
+                  using var doc = System.Text.Json.JsonDocument.Parse(responseJson);
+                  var root = doc.RootElement;
+                  string msg = root.GetProperty("message").GetString() ?? "Success";
+                  long size = root.GetProperty("size").GetInt64();
+                  client.Toast($"{msg} (Size: {size:N0} bytes)");
                 }
               }).Primary().Icon(Icons.Zap) : null)
               | (run.Stage == 2 ? new Button("Rollback", async () =>

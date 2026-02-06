@@ -53,6 +53,7 @@ public class DemoView : ViewBase
                           predictionResult.Set(prediction);
                           confidenceScore.Set((score * 100).ToString("F1") + "%");
                           isPositive.Set(prediction == "Positive");
+
                           client.Toast("Analysis complete!");
                         }
                         else

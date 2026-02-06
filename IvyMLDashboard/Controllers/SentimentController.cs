@@ -21,12 +21,14 @@ namespace IvyMLDashboard.Controllers
       };
 
       var result = SentimentModel.ConsoleApp.SentimentModel.Predict(input);
+      var sortedScoresWithLabels = SentimentModel.ConsoleApp.SentimentModel.GetSortedScoresWithLabels(result);
+      var bestMatchingLabel = sortedScoresWithLabels.First();
 
       return Ok(new SentimentResult
       {
         Text = request.Text,
-        Prediction = result.PredictedLabel == 1 ? "Positive" : "Negative",
-        Score = result.Score[1] // ML.NET typically has [Negative, Positive] scores for binary classification
+        Prediction = bestMatchingLabel.Key == "1" ? "Positive" : "Negative",
+        Score = bestMatchingLabel.Value
       });
     }
 

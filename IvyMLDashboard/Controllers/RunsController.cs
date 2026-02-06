@@ -82,39 +82,63 @@ namespace IvyMLDashboard.Controllers
 
       try
       {
-        // mlnet saves models in a folder named after the --name argument
-        string sourcePath = Path.Combine("/Users/joshuang/Desktop/myMLApp", $"SentimentModel_Run{id}", $"SentimentModel_Run{id}.mlnet");
-        string destPathMyMLApp = Path.Combine("/Users/joshuang/Desktop/myMLApp", "SentimentModel", "SentimentModel.mlnet");
-        string destPathDashboard = Path.Combine(Directory.GetCurrentDirectory(), "SentimentModel.mlnet");
+        string baseMyMLApp = "/Users/joshuang/Desktop/myMLApp";
+        string sourcePath = Path.Combine(baseMyMLApp, $"SentimentModel_Run{id}", $"SentimentModel_Run{id}.mlnet");
+        string destPathMyMLApp = Path.Combine(baseMyMLApp, "SentimentModel", "SentimentModel.mlnet");
+        string destPathDashboard = Path.Combine("/Users/joshuang/Desktop/Programming/Ivy/Ivy-ML-Model-Dashboard/IvyMLDashboard", "SentimentModel.mlnet");
+        string binPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SentimentModel.mlnet");
 
         if (System.IO.File.Exists(sourcePath))
         {
+          Console.WriteLine($"[RunsController] Promoting Run {id} from {sourcePath}");
+
           System.IO.File.Copy(sourcePath, destPathMyMLApp, true);
           System.IO.File.Copy(sourcePath, destPathDashboard, true);
-          
-          // Trigger reload
+          System.IO.File.Copy(sourcePath, binPath, true);
+
+          // Force the engine to use the BIN path
+          SentimentModel.ConsoleApp.SentimentModel.MLNetModelPath = binPath;
           SentimentModel.ConsoleApp.SentimentModel.ResetPredictEngine();
+
+          // Enforce ONLY ONE production deployment: demote ALL existing production runs
+          var otherProdRuns = await _context.Runs.Where(r => r.Stage == RunStage.Production && r.Id != id).ToListAsync();
+          foreach (var prodRun in otherProdRuns)
+          {
+            prodRun.Stage = RunStage.Staging;
+          }
+
+          run.Stage = RunStage.Production;
+
+          // Record Deployment History
+          _context.Deployments.Add(new Deployment
+          {
+            RunName = run.Name,
+            Status = DeploymentStatus.Production,
+            Health = DeploymentHealth.Active,
+            DeployedAt = DateTime.UtcNow
+          });
+
+          await _context.SaveChangesAsync();
+
+          var fileInfo = new FileInfo(binPath);
+          return Ok(new
+          {
+            Message = $"Successfully promoted {run.Name} (ID: {id}) to Production",
+            Source = sourcePath,
+            Dest = binPath,
+            Size = fileInfo.Length,
+            LastWrite = fileInfo.LastWriteTime.ToString("HH:mm:ss")
+          });
+        }
+        else
+        {
+          return NotFound($"Source model for Run {id} not found at {sourcePath}");
         }
       }
       catch (Exception ex)
       {
-        return StatusCode(500, $"Failed to copy model file: {ex.Message}");
+        return StatusCode(500, $"Failed to promote model: {ex.Message}");
       }
-
-      // Enforce ONLY ONE production deployment: demote ALL existing production runs
-      var existingProdRuns = await _context.Runs.Where(r => r.Stage == RunStage.Production).ToListAsync();
-      foreach (var prodRun in existingProdRuns)
-      {
-        if (prodRun.Id != id)
-        {
-          prodRun.Stage = RunStage.Staging;
-        }
-      }
-
-      run.Stage = RunStage.Production;
-      await _context.SaveChangesAsync();
-
-      return Ok(run);
     }
 
     [HttpPost("{id}/rollback")]
