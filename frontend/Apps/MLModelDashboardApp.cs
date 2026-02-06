@@ -111,14 +111,14 @@ public class MLModelDashboardApp : ViewBase
 
     object dashboardContent = selectedItem.Value switch
     {
-      "workspace" => new WorkspaceView(),
+      "workspace" => new WorkspaceView(val => { selectedRunForMetrics.Set(val); selectedItem.Set("runs"); }),
       "runs" when !string.IsNullOrEmpty(selectedRunForMetrics.Value) =>
           new RunMetricsView(selectedRunForMetrics.Value, () => selectedRunForMetrics.Set("")),
       "runs" => new RunsView(val => selectedRunForMetrics.Set(val)),
       "deployments" => new DeploymentsView(),
       "live" => new LiveView(),
       "demo" => new Frontend.Views.DemoView(),
-      _ => new WorkspaceView()
+      _ => new WorkspaceView(val => { selectedRunForMetrics.Set(val); selectedItem.Set("runs"); })
     };
 
     return new SidebarLayout(
