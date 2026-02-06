@@ -15,21 +15,28 @@ namespace IvyMLDashboard.Controllers
         return BadRequest("Text is required");
       }
 
-      var input = new SentimentModel.ConsoleApp.SentimentModel.ModelInput
+      try
       {
-        Col0 = request.Text
-      };
+        var input = new SentimentModel.ConsoleApp.SentimentModel.ModelInput
+        {
+          Col0 = request.Text
+        };
 
-      var result = SentimentModel.ConsoleApp.SentimentModel.Predict(input);
-      var sortedScoresWithLabels = SentimentModel.ConsoleApp.SentimentModel.GetSortedScoresWithLabels(result);
-      var bestMatchingLabel = sortedScoresWithLabels.First();
+        var result = SentimentModel.ConsoleApp.SentimentModel.Predict(input);
+        var sortedScoresWithLabels = SentimentModel.ConsoleApp.SentimentModel.GetSortedScoresWithLabels(result);
+        var bestMatchingLabel = sortedScoresWithLabels.First();
 
-      return Ok(new SentimentResult
+        return Ok(new SentimentResult
+        {
+          Text = request.Text,
+          Prediction = bestMatchingLabel.Key == "1" ? "Positive" : "Negative",
+          Score = bestMatchingLabel.Value
+        });
+      }
+      catch (Exception ex)
       {
-        Text = request.Text,
-        Prediction = bestMatchingLabel.Key == "1" ? "Positive" : "Negative",
-        Score = bestMatchingLabel.Value
-      });
+        return StatusCode(500, $"Internal Error: {ex.Message} \nStack: {ex.StackTrace}");
+      }
     }
 
     public class PredictRequest

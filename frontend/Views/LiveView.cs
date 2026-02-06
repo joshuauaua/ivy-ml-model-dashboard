@@ -4,6 +4,9 @@ public class LiveView : ViewBase
 {
   public override object? Build()
   {
+
+    var client = UseService<IClientProvider>();
+
     var metricCard = (string label, string value, string trend, bool isWarning = false) =>
         new Card(
             Layout.Vertical().Gap(2).Padding(4)
@@ -24,7 +27,7 @@ public class LiveView : ViewBase
 
     return Layout.Vertical().Gap(8).Padding(8)
         | (Layout.Grid().Columns(2)
-            | (Layout.Horizontal().Align(Align.Left).Gap(4).Align(Align.Center)
+            | (Layout.Horizontal().Align(Align.Left).Gap(4).Align(Align.Left)
                 | Text.H1("Live Production Stats"))
             | (Layout.Horizontal().Align(Align.Right)
                 | new Spacer()))
@@ -48,6 +51,32 @@ public class LiveView : ViewBase
             | new Card().Header("Throughput")
                 | (Layout.Grid().Columns(2).Gap(4).Padding(6)
                     | metricCard("Inbound", "8.2 MB/s", "Active")
-                    | metricCard("Outbound", "12.4 MB/s", "Active")));
+                    | metricCard("Outbound", "12.4 MB/s", "Active")))
+        | new Spacer()
+        | new Card(
+            Layout.Horizontal().Align(Align.Center).Padding(4)
+               | new Button("Reset System Data", async () =>
+               {
+                   try
+                   {
+                       using var httpClient = new System.Net.Http.HttpClient();
+                       httpClient.BaseAddress = new Uri("http://localhost:5153/");
+                       var response = await httpClient.PostAsync("api/system/reset", null);
+
+                       if (response.IsSuccessStatusCode)
+                       {
+                           client.Toast("System data has been reset to defaults.");
+                       }
+                       else
+                       {
+                           client.Toast("Failed to reset system data.");
+                       }
+                   }
+                   catch (Exception ex)
+                   {
+                       client.Toast($"Error: {ex.Message}");
+                   }
+               }).Destructive()
+        ).Width(Size.Full());
   }
 }

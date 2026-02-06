@@ -15,12 +15,12 @@ public class DemoView : ViewBase
         | Text.H1("ML Model Demo")
         | Text.P("Experience the Sentiment Analysis model in real-time. This model was trained on Yelp reviews and categorizes text as Positive or Negative.")
 
-        | (Layout.Horizontal().Gap(6).Align(Align.Stretch)
+        | (Layout.Horizontal().Gap(6).Align(Align.Center)
             | new Card(
                 Layout.Vertical().Gap(6).Padding(4)
                     | Text.Block("Enter your review below:").Bold()
                     | (reviewText.ToTextInput().Placeholder("e.g. The food was delicious!")
-                        .Width(350))
+                        .Width(Size.Full()))
 
                     | new Button("Analyze Sentiment", async () =>
                     {
@@ -58,7 +58,8 @@ public class DemoView : ViewBase
                         }
                         else
                         {
-                          client.Toast("Error calling sentiment API");
+                          var errorMsg = await response.Content.ReadAsStringAsync();
+                          client.Toast($"Error calling sentiment API: {response.StatusCode} - {errorMsg}");
                         }
                       }
                       catch (Exception ex)
@@ -75,16 +76,17 @@ public class DemoView : ViewBase
             ).Width(400)
 
             | (predictionResult.Value != "---" ? new Card(
-                Layout.Vertical().Gap(4).Padding(10).Align(Align.Center)
+                Layout.Vertical().Gap(2).Padding(4).Align(Align.Left)
                     | Text.H2("Results")
                     | new Table()
                         | (new TableRow()
                             | new TableCell(Text.Block("Predicted Sentiment").Bold())
-                            | new TableCell(Text.Block("Confidence Score").Bold()))
+                            | new TableCell(isPositive.Value ? new Badge("Positive").Success() : new Badge("Negative").Destructive()))
                         | (new TableRow()
-                            | new TableCell(isPositive.Value ? new Badge("Positive").Success() : new Badge("Negative").Destructive())
+                            | new TableCell(Text.Block("Confidence Score").Bold())
                             | new TableCell(Text.H3(confidenceScore.Value)))
             ).Width(400) : null)
-        );
+        )
+        ;
   }
 }

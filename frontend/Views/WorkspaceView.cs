@@ -4,28 +4,17 @@ public class WorkspaceView : ViewBase
 {
   private readonly Action<string> _onViewMetrics;
 
-  public WorkspaceView(Action<string> onViewMetrics)
+  private readonly List<Run> _runs;
+
+  public WorkspaceView(List<Run> runs, Action<string> onViewMetrics)
   {
+    _runs = runs;
     _onViewMetrics = onViewMetrics;
   }
 
   public override object? Build()
   {
-    var runsQuery = UseQuery<List<Run>, string>(
-      "runs",
-      async (key, ct) =>
-      {
-        using var httpClient = new System.Net.Http.HttpClient();
-        httpClient.BaseAddress = new Uri("http://localhost:5153/");
-        var response = await httpClient.GetAsync("api/runs", ct);
-        response.EnsureSuccessStatusCode();
-        var json = await response.Content.ReadAsStringAsync(ct);
-        return System.Text.Json.JsonSerializer.Deserialize<List<Run>>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Run>();
-      },
-      new QueryOptions { RefreshInterval = TimeSpan.FromSeconds(3) }
-    );
-
-    var runs = runsQuery.Value ?? new List<Run>();
+    var runs = _runs;
 
     // Calculate Metrics
     int activeRuns = runs.Count(r => r.Stage == 0); // Training
@@ -76,9 +65,8 @@ public class WorkspaceView : ViewBase
 
     return Layout.Vertical().Gap(8).Padding(8)
         | (Layout.Grid().Columns(2)
-            | (Layout.Horizontal().Align(Align.Left).Gap(4).Align(Align.Center)
-                | Text.H1("Workspace Overview")
-                | Text.H3("Dashboard").Muted())
+            | (Layout.Horizontal().Align(Align.Left).Gap(4).Align(Align.Left)
+                | Text.H1("Workspace Overview"))
             | (Layout.Horizontal().Align(Align.Right)
                 | new Spacer()))
 
@@ -94,13 +82,12 @@ public class WorkspaceView : ViewBase
 
 
             new Card(
-                Layout.Vertical().Gap(4).Padding(6).Width(Size.Full())
-                    | (Layout.Horizontal().Gap(4).Align(Align.Center)
-                        | new Badge("").Icon(Icons.Award).Warning()
-                        | (Layout.Vertical().Gap(0)
-                            | Text.H3("Best Performing Model")
-                            | Text.Block(bestModel.Name).Small().Muted()))
-                    | new Spacer().Height(1)
+                Layout.Vertical().Gap(4).Width(Size.Full())
+                    | (Layout.Vertical().Gap(2).Align(Align.Center)
+                        | Text.H3("Best Performing Model")
+                        | Text.Block(bestModel.Name).Small().Muted())
+                    | new Spacer()
+                    | new Separator()
                     | (Layout.Grid().Columns(3).Gap(2).Padding(4)
                         | (Layout.Vertical().Align(Align.Right).Gap(4)
                             | Text.Block("Accuracy").Small().Muted()
@@ -115,7 +102,6 @@ public class WorkspaceView : ViewBase
                             | (Layout.Horizontal().Gap(1).Align(Align.Center).Wrap()
                                 | bestModel.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                                     .Select(t => new Badge(t).Info().Small()).ToArray())))
-                        | new Spacer().Height(1)
                         | new Button("View Run Details", () => _onViewMetrics(bestModel.Name)).Primary().Width(Size.Full())
             ) : null)
 

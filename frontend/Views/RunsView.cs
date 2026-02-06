@@ -27,8 +27,11 @@ public class RunsView : ViewBase
 {
   private readonly Action<string> _onViewMetrics;
 
-  public RunsView(Action<string> onViewMetrics)
+  private readonly List<Run> _runs;
+
+  public RunsView(List<Run> runs, Action<string> onViewMetrics)
   {
+    _runs = runs;
     _onViewMetrics = onViewMetrics;
   }
 
@@ -49,22 +52,7 @@ public class RunsView : ViewBase
     var isTraining = UseState(true);
     var runHyperparams = UseState("{\n  \"train_time\": 60,\n  \"dataset\": \"yelp_labelled.txt\"\n}");
 
-    // UseQuery for automatic updates
-    var runsQuery = UseQuery<List<Run>, string>(
-      "runs",
-      async (key, ct) =>
-      {
-        using var httpClient = new System.Net.Http.HttpClient();
-        httpClient.BaseAddress = new Uri("http://localhost:5153/");
-        var response = await httpClient.GetAsync("api/runs", ct);
-        response.EnsureSuccessStatusCode();
-        var responseJson = await response.Content.ReadAsStringAsync(ct);
-        return System.Text.Json.JsonSerializer.Deserialize<List<Run>>(responseJson, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Run>();
-      },
-      new QueryOptions { RefreshInterval = TimeSpan.FromSeconds(3) }
-    );
-
-    var currentRuns = runsQuery.Value ?? new List<Run>();
+    var currentRuns = _runs;
 
     var filteredRuns = currentRuns.Where(r =>
         (string.IsNullOrEmpty(searchTerm.Value) || r.Name.Contains(searchTerm.Value, StringComparison.OrdinalIgnoreCase)) &&
@@ -81,15 +69,10 @@ public class RunsView : ViewBase
     var ownerOptions = new[] { "All Owners", "Alice", "Bob", "Charlie" }.ToOptions();
 
     var topHeader = Layout.Grid().Columns(2)
-        | (Layout.Horizontal().Align(Align.Left).Gap(4).Align(Align.Center)
+        | (Layout.Horizontal().Align(Align.Left).Gap(4).Align(Align.Left)
             | Text.H1("Experiment Runs")
-            | Text.H3($"{filteredRuns.Count} runs").Muted())
+            | Text.P($"{filteredRuns.Count} runs registered").Muted())
         | (Layout.Horizontal().Align(Align.Right) | new Button("New Run", () => isDialogOpen.Set(true)).Primary());
-
-    var middleHeader = Layout.Grid().Columns(2)
-        | (Layout.Horizontal().Align(Align.Left) | new Spacer())
-        | (Layout.Horizontal().Align(Align.Right)
-            | selectedTag.ToSelectInput(tagOptions).Width(150));
 
     var bottomHeader = Layout.Grid().Columns(2)
         | (Layout.Horizontal().Align(Align.Left) | searchTerm.ToTextInput().Placeholder("Search runs...").Width(250))
@@ -158,9 +141,8 @@ public class RunsView : ViewBase
     }
 
     return Layout.Vertical().Gap(8).Padding(8)
-        | (Layout.Vertical().Gap(0)
+        | (Layout.Vertical().Gap(6)
             | topHeader
-            | middleHeader
             | bottomHeader)
         | new Card(table)
         | (isDialogOpen.Value ? new Dialog(

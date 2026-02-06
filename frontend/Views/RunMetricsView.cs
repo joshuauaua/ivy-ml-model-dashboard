@@ -5,11 +5,13 @@ namespace Frontend.Views;
 public class RunMetricsView : ViewBase
 {
   private readonly string _runName;
+  private readonly List<Run> _runs;
   private readonly Action _onBack;
 
-  public RunMetricsView(string runName, Action onBack)
+  public RunMetricsView(string runName, List<Run> runs, Action onBack)
   {
     _runName = runName;
+    _runs = runs;
     _onBack = onBack;
   }
 
@@ -17,22 +19,7 @@ public class RunMetricsView : ViewBase
   {
     var client = UseService<IClientProvider>();
 
-    // Fetch all runs to maintain cache consistency with the sidebar and main table
-    var runsQuery = UseQuery<List<Run>, string>(
-      "runs",
-      async (key, ct) =>
-      {
-        using var httpClient = new System.Net.Http.HttpClient();
-        httpClient.BaseAddress = new Uri("http://localhost:5153/");
-        var response = await httpClient.GetAsync("api/runs", ct);
-        response.EnsureSuccessStatusCode();
-        var json = await response.Content.ReadAsStringAsync(ct);
-        return System.Text.Json.JsonSerializer.Deserialize<List<Run>>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Run>();
-      },
-      new QueryOptions { RefreshInterval = TimeSpan.FromSeconds(3) }
-    );
-
-    var runs = runsQuery.Value ?? new List<Run>();
+    var runs = _runs;
     var run = runs.FirstOrDefault(r => r.Name == _runName) ?? new Run { Name = _runName };
 
     var header = Layout.Horizontal().Align(Align.Center)

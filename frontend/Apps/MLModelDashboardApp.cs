@@ -2,14 +2,7 @@ using Frontend.Views;
 
 namespace Frontend.Apps;
 
-public class Deployment
-{
-  public int Id { get; set; }
-  public string RunName { get; set; } = string.Empty;
-  public int Status { get; set; }
-  public string DeployedAt { get; set; } = string.Empty;
-  public int Health { get; set; }
-}
+
 
 [App("dashboard")]
 public class MLModelDashboardApp : ViewBase
@@ -71,11 +64,11 @@ public class MLModelDashboardApp : ViewBase
     {
 
                 MenuItem.Default("").Icon(Icons.Package).Children(
-                    MenuItem.Default("Workspace").Tag("workspace"),
-                    MenuItem.Default("Runs").Tag("runs"),
-                    MenuItem.Default("Deployments").Tag("deployments"),
-                    MenuItem.Default("Live").Tag("live"),
-                    MenuItem.Default("Demo").Tag("demo")
+                MenuItem.Default("Workspace").Tag("workspace").Icon(Icons.Table),
+                MenuItem.Default("Runs").Tag("runs").Icon(Icons.Cpu),
+                MenuItem.Default("Deployments").Tag("deployments").Icon(Icons.Package),
+                MenuItem.Default("Live").Tag("live").Icon(Icons.Zap),
+                MenuItem.Default("Demo").Tag("demo").Icon(Icons.Award)
                 ),
 
                 MenuItem.Default("Recent Runs").Icon(Icons.Cpu).Children(recentRunItems),
@@ -111,14 +104,14 @@ public class MLModelDashboardApp : ViewBase
 
     object dashboardContent = selectedItem.Value switch
     {
-      "workspace" => new WorkspaceView(val => { selectedRunForMetrics.Set(val); selectedItem.Set("runs"); }),
+      "workspace" => new WorkspaceView(currentRuns, val => { selectedRunForMetrics.Set(val); selectedItem.Set("runs"); }),
       "runs" when !string.IsNullOrEmpty(selectedRunForMetrics.Value) =>
-          new RunMetricsView(selectedRunForMetrics.Value, () => selectedRunForMetrics.Set("")),
-      "runs" => new RunsView(val => selectedRunForMetrics.Set(val)),
-      "deployments" => new DeploymentsView(),
+          new RunMetricsView(selectedRunForMetrics.Value, currentRuns, () => selectedRunForMetrics.Set("")),
+      "runs" => new RunsView(currentRuns, val => selectedRunForMetrics.Set(val)),
+      "deployments" => new DeploymentsView(currentRuns),
       "live" => new LiveView(),
       "demo" => new Frontend.Views.DemoView(),
-      _ => new WorkspaceView(val => { selectedRunForMetrics.Set(val); selectedItem.Set("runs"); })
+      _ => new WorkspaceView(currentRuns, val => { selectedRunForMetrics.Set(val); selectedItem.Set("runs"); })
     };
 
     return new SidebarLayout(
